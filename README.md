@@ -1,5 +1,5 @@
 # RASUN
-a glued together demo for ASUN (Address Sharing Using Nostr) in rust
+a glued together demo implementation of [ASUN (Address Sharing Using Nostr)](https://github.com/PraiseTheMithra/ASUN) in rust
 
 # TODO
 - [x] answer re-reqs with the same address if the previous address was not used in the transaction
