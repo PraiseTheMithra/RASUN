@@ -57,14 +57,12 @@ fn give_desc() -> String{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
-
-
     // TODO : 
     //add support for version bytes zpub/ypub formats
     //auto-conversion to bech32
     //add support for testnet
 
-    println!("Enter your xpub: (Enter nothing to use a predefined one) .\n note that version bytes(zpub/ypub) are not currently supported");
+    println!("Enter your WPKH xpub: (Enter nothing to use a predefined one) .\n note that version bytes(zpub/ypub) are not currently supported");
     let mut inputed_xpub = String::new();
     io::stdin().read_line(&mut inputed_xpub).expect("failed to readline");
     let mut inputed_xpub = inputed_xpub.trim();
@@ -73,6 +71,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         inputed_xpub = "xpub6BqB4igvkyuLW28sMUx5KgLxpnW5AmkDdcRRAhYaMKVRVcY1fbntCKCDMwqko4DUUGHsQNwvMtMGpitSDmp7VFXqWTRtA95Fcw4XQFbut4Z";
     }
 
+    println!("Enter your WPKH xpub derivation path (defaults to m/84/0/0)");
+    let mut derpath_str = String::new();
+    io::stdin().read_line(&mut derpath_str).expect("failed to readline");
+    let mut derpath_str = derpath_str.trim();
+    if derpath_str.is_empty(){
+        println!("predefined!");
+        derpath_str = "m/84/0/0";
+    }
 
     println!("Enter your nostr prvkey (generated from m/696h): (Enter nothing to use a random-generated key)");
     let mut inputed_nostrkey = String::new();
@@ -94,13 +100,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
-
-
-
-    let der= bip32::DerivationPath::from_str("m/84'/0/1").unwrap();
+    let der= bip32::DerivationPath::from_str(derpath_str).unwrap();
     let sid = ExtendedPubKey::from_str(inputed_xpub).unwrap();
-    let dsid: DescriptorKey<bdk::descriptor::Legacy>=(sid.clone(),der).into_descriptor_key().unwrap();
-    let ddsid = descriptor!(Wpkh(dsid)).unwrap();
+    let dsid: DescriptorKey<bdk::descriptor::Segwitv0>=(sid.clone(),der).into_descriptor_key().unwrap();
+    let ddsid = descriptor!(wpkh(dsid)).unwrap();
    // let external_descriptor = "wpkh(tprv8ZgxMBicQKsPdy6LMhUtFHAgpocR8GC6QmwMSFpZs7h6Eziw3SpThFfczTDh5rW2krkqffa11UpX3XkeTTB2FvzZKWXqPY54Y6Rq4AQ5R8L/84'/0'/0'/0/*)";
    let db =MemoryDatabase::new();
     let wallet: Wallet<MemoryDatabase> = Wallet::new(
