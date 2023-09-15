@@ -40,19 +40,13 @@ async fn give_addr(wallet:&bdk::Wallet<bdk::database::MemoryDatabase>,req_pubkey
     recov_vec.lock().unwrap().push(recov_message.clone());
     println!("{} is given to {}, Addr index = {}",recov_message.content_given,recov_message.reciever_pubkey,recov_message.index);
     let recov_id=backup_client.send_direct_msg(my_pubkey, recov_message.to_string(), None).await;
-    println!("{:?}",recov_id.unwrap());
-    
-    
+    println!("{:?}",recov_id.unwrap());   
     return format!("AddrRes:\n{}", recov_message.content_given)
 }
-
 
 fn give_desc() -> String{
     String::from("is not supported")
 } 
-
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -62,6 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //auto-conversion to bech32
     //add support for testnet
 
+    //xpub input 
     println!("Enter your WPKH xpub: (Enter nothing to use a predefined one) .\n note that version bytes(zpub/ypub) are not currently supported");
     let mut inputed_xpub = String::new();
     io::stdin().read_line(&mut inputed_xpub).expect("failed to readline");
@@ -70,6 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("predefined!");
         inputed_xpub = "xpub6BqB4igvkyuLW28sMUx5KgLxpnW5AmkDdcRRAhYaMKVRVcY1fbntCKCDMwqko4DUUGHsQNwvMtMGpitSDmp7VFXqWTRtA95Fcw4XQFbut4Z";
     }
+
+    let user_xpub = ExtendedPubKey::from_str(inputed_xpub).unwrap();
 
     println!("Enter your WPKH xpub derivation path (defaults to m/84/0/0)");
     let mut derpath_str = String::new();
@@ -80,12 +77,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         derpath_str = "m/84/0/0";
     }
 
+    let user_derpath= bip32::DerivationPath::from_str(derpath_str).unwrap();
+
+    //nostr key input
     println!("Enter your nostr prvkey (generated from m/696h): (Enter nothing to use a random-generated key)");
     let mut inputed_nostrkey = String::new();
     io::stdin().read_line(&mut inputed_nostrkey).expect("failed to readline");
     let mut inputed_nostrkey= inputed_nostrkey.trim();
     let mut my_keys = nostr_sdk::Keys::generate();
-    
     if inputed_nostrkey.is_empty(){
         println!("Key Generated!");
       //  my_keys = nostr_sdk::Keys::generate();
@@ -99,10 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         my_keys = nostr_sdk::Keys::from_sk_str(inputed_nostrkey)?;
     }
 
-
-    let der= bip32::DerivationPath::from_str(derpath_str).unwrap();
-    let sid = ExtendedPubKey::from_str(inputed_xpub).unwrap();
-    let dsid: DescriptorKey<bdk::descriptor::Segwitv0>=(sid.clone(),der).into_descriptor_key().unwrap();
+    let dsid: DescriptorKey<bdk::descriptor::Segwitv0>=(user_xpub.clone(),user_derpath).into_descriptor_key().unwrap();
     let ddsid = descriptor!(wpkh(dsid)).unwrap();
    // let external_descriptor = "wpkh(tprv8ZgxMBicQKsPdy6LMhUtFHAgpocR8GC6QmwMSFpZs7h6Eziw3SpThFfczTDh5rW2krkqffa11UpX3XkeTTB2FvzZKWXqPY54Y6Rq4AQ5R8L/84'/0'/0'/0/*)";
    let db =MemoryDatabase::new();
@@ -117,19 +113,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // wallet.sync(&blockchain, SyncOptions::default())?;
     // println!("Your Wallet Balance is {}",wallet.get_balance().unwrap_or(Balance{confirmed:0,immature:0,trusted_pending:0,untrusted_pending:9}));
 
+    //nostr response relay input
+    println!("Enter your response relay: (Enter nothing to use wss://relay.damus.io)");
+    let mut inputed_resrelay = String::new();
+    io::stdin().read_line(&mut inputed_resrelay).expect("failed to readline");
+    let mut inputed_resrelay= inputed_resrelay.trim();
+    if inputed_resrelay.is_empty(){
+        inputed_resrelay="wss://relay.damus.io";
+    }
 
+    //nostr recovery relay input
+    println!("Enter your recovery relay: (Enter nothing to use wss://relay.damus.io)");
+    let mut inputed_recovrelay = String::new();
+    io::stdin().read_line(&mut inputed_recovrelay).expect("failed to readline");
+    let mut inputed_recovrelay= inputed_recovrelay.trim();
+    if inputed_recovrelay.is_empty(){
+        inputed_recovrelay="wss://relay.damus.io";
+    }
 
-    //let my_keys: Keys = Keys::generate();// ce7a8c7348a127b1e31483d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9
+    //let my_keys: Keys = Keys::generate();
     let bech32_pubkey: String = my_keys.public_key().to_bech32()?;
     println!("Bech32 PubKey: {}", bech32_pubkey);
     println!("prv key:{}",my_keys.secret_key().unwrap().display_secret());
     let client = nostr_sdk::Client::new(&my_keys);
-    client.add_relay("wss://relay.damus.io",None).await?;
-    client.add_relay("wss://relay.snort.social",None).await?;
+    client.add_relay(inputed_resrelay,None).await?;
+   // client.add_relay("wss://relay.snort.social",None).await?;
     client.connect().await;
-//backup messages
+    //backup messages
     let backup_client=nostr_sdk::Client::new(&my_keys);
-    backup_client.add_relay("wss://relay.damus.io", None).await?;
+    backup_client.add_relay(inputed_recovrelay, None).await?;
     backup_client.connect().await;
     let backup_subscription = nostr_sdk::Filter::new()
     .pubkey(my_keys.public_key())
@@ -137,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //backup_client.subscribe(vec![backup_subscription]).await;
 
    // let mut recov_vec:Vec<RecovMessage>= vec![]; 
-   let mut recov_vec= Arc::new(Mutex::new(Vec::new()));
+   let recov_vec= Arc::new(Mutex::new(Vec::new()));
     let notes = backup_client.get_events_of(vec![backup_subscription], None).await.unwrap();
     for note in notes{
         match nostr_sdk::nips::nip04::decrypt(&my_keys.secret_key()?, &note.pubkey, &note.content){
@@ -153,7 +165,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
                // println!("{}",b);
             }
-
             Err(e) => tracing::error!("Impossible to decrypt direct message: {e}"),
         } 
     }
@@ -165,11 +176,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         wallet.get_address(bdk::wallet::AddressIndex::Reset(last_index))?; // Return the address for a specific descriptor index and reset the current descriptor index used by AddressIndex::New and AddressIndex::LastUsed to this value.
     }
 
-
-
-
-
-    
     let subscription = nostr_sdk::Filter::new()
         .pubkey(my_keys.public_key())
         .kind(nostr_sdk::Kind::EncryptedDirectMessage)
@@ -191,8 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 "AddrReq" => {
 
                                 give_addr(&wallet,&event.pubkey,
-                                    &backup_client,
-                                    my_keys.public_key()
+                                    &backup_client,my_keys.public_key()
                                     ,recov_vec).await
                            
                             }
@@ -220,9 +225,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .await?;
 
-
     Ok(())
 }
+
 #[derive (Clone)]
 struct RecovMessage{
     mssg_type: String,
@@ -236,7 +241,6 @@ impl fmt::Display for RecovMessage {
         write!(f,"type: {}, pubkey: {}, content_given: {}, index: {}, timestamp: {}",self.mssg_type,self.reciever_pubkey,self.content_given,self.index, self.timestamp)
     }
     }
-
 impl FromStr for RecovMessage {
     //TODO handle Error case , index out of bound, etc
         type Err = Box<dyn std::error::Error>;   
