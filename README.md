@@ -23,4 +23,4 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 - [ ] show deposits into covered addresses
 - [ ] add derivation paths to recovery notes
 ### known issues
-- [ ] currentl can't handle other non-recovery notes to self (they should be checked for and ignored)
+- [ ] currently can't handle other non-recovery notes to self (they should be checked for and ignored)
