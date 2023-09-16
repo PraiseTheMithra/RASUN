@@ -1,4 +1,3 @@
-use std::io;
 use std::sync::{Arc, Mutex};
 use std::{fmt, str::FromStr};
 //use bdk::electrum_client::Client;
@@ -11,10 +10,90 @@ use bdk::{
     descriptor,
     keys::DescriptorKey,
 };
+use clap::Parser;
 use nostr_sdk::prelude::FromSkStr;
 use nostr_sdk::prelude::ToBech32;
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(
+        short = 'x',
+        long = "extended-public-key",
+        default_value = "xpub6BqB4igvkyuLW28sMUx5KgLxpnW5AmkDdcRRAhYaMKVRVcY1fbntCKCDMwqko4DUUGHsQNwvMtMGpitSDmp7VFXqWTRtA95Fcw4XQFbut4Z",
+        env = "XPUB"
+    )]
+    xpub: String,
+
+    #[arg(
+        short = 'd',
+        long = "derivation-path",
+        default_value = "m/84/0/0",
+        env = "DERIVATION_PATH"
+    )]
+    derivation_path: String,
+
+    #[arg(short = 'n', long = "nostr-key", default_value = "", env = "NOSTR_KEY")]
+    nostr_key: String,
+
+    #[arg(
+        short = 'r',
+        long = "nostr-response-relay",
+        default_value = "wss://relay.damus.io",
+        env = "NOSTR_RESPONSE_RELAY"
+    )]
+    nostr_response_relay: String,
+
+    #[arg(
+        short = 'c',
+        long = "nostr-recovery-relay",
+        default_value = "wss://relay.damus.io",
+        env = "NOSTR_RECOVERY_RELAY"
+    )]
+    nostr_recovery_relay: String,
+}
+
+#[derive(Clone)]
+struct RecovMessage {
+    mssg_type: String,
+    reciever_pubkey: String,
+    content_given: String,
+    index: u32,
+    timestamp: u64,
+}
+impl fmt::Display for RecovMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "type: {}, pubkey: {}, content_given: {}, index: {}, timestamp: {}",
+            self.mssg_type, self.reciever_pubkey, self.content_given, self.index, self.timestamp
+        )
+    }
+}
+impl FromStr for RecovMessage {
+    //TODO handle Error case , index out of bound, etc
+    type Err = Box<dyn std::error::Error>;
+    fn from_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        //Self::Err> {
+
+        let pairs: Vec<&str> = s.split(", ").collect();
+
+        let _b = RecovMessage {
+            mssg_type: String::from(pairs[0].split(": ").collect::<Vec<&str>>()[1]),
+            reciever_pubkey: String::from(pairs[1].split(": ").collect::<Vec<&str>>()[1]),
+            content_given: String::from(pairs[2].split(": ").collect::<Vec<&str>>()[1]),
+            index: pairs[3].split(": ").collect::<Vec<&str>>()[1]
+                .parse::<u32>()
+                .unwrap(),
+            timestamp: pairs[4].split(": ").collect::<Vec<&str>>()[1]
+                .parse::<u64>()
+                .unwrap(),
+        };
+        Ok(_b)
+    }
+}
 
 async fn give_addr(
     wallet: &bdk::Wallet<bdk::database::MemoryDatabase>,
@@ -70,59 +149,28 @@ fn give_desc() -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // TODO :
-    //add support for version bytes zpub/ypub formats
-    //auto-conversion to bech32
-    //add support for testnet
+    // TODO:
+    // add support for version bytes zpub/ypub formats
+    // auto-conversion to bech32
+    // add support for testnet
 
-    //xpub input
-    println!("Enter your WPKH xpub: (Enter nothing to use a predefined one) .\n note that version bytes(zpub/ypub) are not currently supported");
-    let mut inputed_xpub = String::new();
-    io::stdin()
-        .read_line(&mut inputed_xpub)
-        .expect("failed to readline");
-    let mut inputed_xpub = inputed_xpub.trim();
-    if inputed_xpub.is_empty() {
-        println!("predefined!");
-        inputed_xpub = "xpub6BqB4igvkyuLW28sMUx5KgLxpnW5AmkDdcRRAhYaMKVRVcY1fbntCKCDMwqko4DUUGHsQNwvMtMGpitSDmp7VFXqWTRtA95Fcw4XQFbut4Z";
-    }
-
-    let user_xpub = ExtendedPubKey::from_str(inputed_xpub).unwrap();
-
-    println!("Enter your WPKH xpub derivation path (defaults to m/84/0/0)");
-    let mut derpath_str = String::new();
-    io::stdin()
-        .read_line(&mut derpath_str)
-        .expect("failed to readline");
-    let mut derpath_str = derpath_str.trim();
-    if derpath_str.is_empty() {
-        println!("predefined!");
-        derpath_str = "m/84/0/0";
-    }
-
-    let user_derpath = bip32::DerivationPath::from_str(derpath_str).unwrap();
-
-    //nostr key input
-    println!("Enter your nostr prvkey (generated from m/696h): (Enter nothing to use a random-generated key)");
-    let mut inputed_nostrkey = String::new();
-    io::stdin()
-        .read_line(&mut inputed_nostrkey)
-        .expect("failed to readline");
-    let mut inputed_nostrkey = inputed_nostrkey.trim();
-    let mut my_keys = nostr_sdk::Keys::generate();
-    if inputed_nostrkey.is_empty() {
-        println!("Key Generated!");
-        //  my_keys = nostr_sdk::Keys::generate();
-    } else if inputed_nostrkey == "0" {
-        inputed_nostrkey = "ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9";
-        println!("devMod! inputed_nostrkey.as_str():{}", inputed_nostrkey);
-        my_keys = nostr_sdk::Keys::from_sk_str(inputed_nostrkey)?;
+    let args = Args::parse();
+    let xpub = ExtendedPubKey::from_str(args.xpub.as_str()).unwrap();
+    let derivation_path = bip32::DerivationPath::from_str(args.derivation_path.as_str()).unwrap();
+    let nostr_response_relay = args.nostr_response_relay;
+    let nostr_recovery_relay = args.nostr_recovery_relay;
+    let nostr_keys;
+    if args.nostr_key.is_empty() {
+        nostr_keys = nostr_sdk::Keys::generate();
+    } else if args.nostr_key == "0" {
+        nostr_keys = nostr_sdk::Keys::from_sk_str(
+            "ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9",
+        )?;
     } else {
-        println!("imported Key!");
-        my_keys = nostr_sdk::Keys::from_sk_str(inputed_nostrkey)?;
+        nostr_keys = nostr_sdk::Keys::from_sk_str(args.nostr_key.as_str())?;
     }
 
-    let dsid: DescriptorKey<bdk::descriptor::Segwitv0> = (user_xpub.clone(), user_derpath)
+    let dsid: DescriptorKey<bdk::descriptor::Segwitv0> = (xpub.clone(), derivation_path)
         .into_descriptor_key()
         .unwrap();
     let ddsid = descriptor!(wpkh(dsid)).unwrap();
@@ -135,44 +183,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // wallet.sync(&blockchain, SyncOptions::default())?;
     // println!("Your Wallet Balance is {}",wallet.get_balance().unwrap_or(Balance{confirmed:0,immature:0,trusted_pending:0,untrusted_pending:9}));
 
-    //nostr response relay input
-    println!("Enter your response relay: (Enter nothing to use wss://relay.damus.io)");
-    let mut inputed_resrelay = String::new();
-    io::stdin()
-        .read_line(&mut inputed_resrelay)
-        .expect("failed to readline");
-    let mut inputed_resrelay = inputed_resrelay.trim();
-    if inputed_resrelay.is_empty() {
-        inputed_resrelay = "wss://relay.damus.io";
-    }
-
-    //nostr recovery relay input
-    println!("Enter your recovery relay: (Enter nothing to use wss://relay.damus.io)");
-    let mut inputed_recovrelay = String::new();
-    io::stdin()
-        .read_line(&mut inputed_recovrelay)
-        .expect("failed to readline");
-    let mut inputed_recovrelay = inputed_recovrelay.trim();
-    if inputed_recovrelay.is_empty() {
-        inputed_recovrelay = "wss://relay.damus.io";
-    }
-
     //let my_keys: Keys = Keys::generate();
-    let bech32_pubkey: String = my_keys.public_key().to_bech32()?;
+    let bech32_pubkey: String = nostr_keys.public_key().to_bech32()?;
     println!("Bech32 PubKey: {}", bech32_pubkey);
-    println!("prv key:{}", my_keys.secret_key().unwrap().display_secret());
-    let client = nostr_sdk::Client::new(&my_keys);
-    client.add_relay(inputed_resrelay, None).await?;
+    println!(
+        "prv key:{}",
+        nostr_keys.secret_key().unwrap().display_secret()
+    );
+    let client = nostr_sdk::Client::new(&nostr_keys);
+    client.add_relay(nostr_response_relay, None).await?;
     // client.add_relay("wss://relay.snort.social",None).await?;
     client.connect().await;
     //backup messages
-    let backup_client = nostr_sdk::Client::new(&my_keys);
-    backup_client.add_relay(inputed_recovrelay, None).await?;
+    let backup_client = nostr_sdk::Client::new(&nostr_keys);
+    backup_client.add_relay(nostr_recovery_relay, None).await?;
     backup_client.connect().await;
     let backup_subscription = nostr_sdk::Filter::new()
-        .pubkey(my_keys.public_key())
+        .pubkey(nostr_keys.public_key())
         .kind(nostr_sdk::Kind::EncryptedDirectMessage)
-        .author(my_keys.public_key().to_string());
+        .author(nostr_keys.public_key().to_string());
     //backup_client.subscribe(vec![backup_subscription]).await;
 
     // let mut recov_vec:Vec<RecovMessage>= vec![];
@@ -182,7 +211,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .unwrap();
     for note in notes {
-        match nostr_sdk::nips::nip04::decrypt(&my_keys.secret_key()?, &note.pubkey, &note.content) {
+        match nostr_sdk::nips::nip04::decrypt(
+            &nostr_keys.secret_key()?,
+            &note.pubkey,
+            &note.content,
+        ) {
             Ok(notestr) => {
                 match RecovMessage::from_str(&notestr) {
                     Ok(rec) => {
@@ -211,7 +244,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let subscription = nostr_sdk::Filter::new()
-        .pubkey(my_keys.public_key())
+        .pubkey(nostr_keys.public_key())
         .kind(nostr_sdk::Kind::EncryptedDirectMessage)
         .since(nostr_sdk::Timestamp::now());
     // .since(nostr_sdk::Timestamp::from(last_timestamp));
@@ -225,7 +258,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let nostr_sdk::RelayPoolNotification::Event(_url, event) = notification {
                 if event.kind == nostr_sdk::Kind::EncryptedDirectMessage {
                     match nostr_sdk::nips::nip04::decrypt(
-                        &my_keys.secret_key()?,
+                        &nostr_keys.secret_key()?,
                         &event.pubkey,
                         &event.content,
                     ) {
@@ -236,7 +269,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         &wallet,
                                         &event.pubkey,
                                         &backup_client,
-                                        my_keys.public_key(),
+                                        nostr_keys.public_key(),
                                         recov_vec,
                                     )
                                     .await
@@ -260,44 +293,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
-}
-
-#[derive(Clone)]
-struct RecovMessage {
-    mssg_type: String,
-    reciever_pubkey: String,
-    content_given: String,
-    index: u32,
-    timestamp: u64,
-}
-impl fmt::Display for RecovMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "type: {}, pubkey: {}, content_given: {}, index: {}, timestamp: {}",
-            self.mssg_type, self.reciever_pubkey, self.content_given, self.index, self.timestamp
-        )
-    }
-}
-impl FromStr for RecovMessage {
-    //TODO handle Error case , index out of bound, etc
-    type Err = Box<dyn std::error::Error>;
-    fn from_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        //Self::Err> {
-
-        let pairs: Vec<&str> = s.split(", ").collect();
-
-        let _b = RecovMessage {
-            mssg_type: String::from(pairs[0].split(": ").collect::<Vec<&str>>()[1]),
-            reciever_pubkey: String::from(pairs[1].split(": ").collect::<Vec<&str>>()[1]),
-            content_given: String::from(pairs[2].split(": ").collect::<Vec<&str>>()[1]),
-            index: pairs[3].split(": ").collect::<Vec<&str>>()[1]
-                .parse::<u32>()
-                .unwrap(),
-            timestamp: pairs[4].split(": ").collect::<Vec<&str>>()[1]
-                .parse::<u64>()
-                .unwrap(),
-        };
-        Ok(_b)
-    }
 }

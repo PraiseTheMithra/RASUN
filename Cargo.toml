@@ -1,5 +1,5 @@
 [package]
-name = "learning2"
+name = "rasun"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 bdk = "0.28.2"
+clap = { version = "4.4.3", features = ["derive", "env"] }
 nostr-sdk = { version = "0.23.0", features = ["nip03"] }
 reqwest = "0.11.20"
 tokio = "1.32.0"
