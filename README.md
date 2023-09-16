@@ -16,11 +16,11 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 ## TODO
 - [x] answer re-reqs with the same address if the previous address was not used in the transaction
 - [x] default to Wpkh instead of pkh
-- [ ] add support for different address types
-- [ ] handle non-recovery notes to self
+- [ ] support for multiple user-defined relays
+- [ ] support for different address types
 - [ ] reply to messages sent while the client was not running
 - [ ] add support for DescReq
 - [ ] show deposits into covered addresses
 - [ ] add derivation paths to recovery notes
 ### known issues
-- [ ] currentl can't handle other notes to self (they should be checked for and ignored)
+- [ ] currentl can't handle other non-recovery notes to self (they should be checked for and ignored)
