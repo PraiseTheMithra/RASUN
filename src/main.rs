@@ -1,11 +1,6 @@
-use rasun::recovery::RecoveryMessage;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
-//use bdk::electrum_client::Client;
-use bdk::Wallet; //, SyncOptions, Balance};
-                 //use bdk::blockchain::ElectrumBlockchain;
 use bdk::database::MemoryDatabase;
 use bdk::keys::IntoDescriptorKey;
+use bdk::Wallet;
 use bdk::{
     bitcoin::util::bip32::{self, ExtendedPubKey},
     descriptor,
@@ -14,11 +9,12 @@ use bdk::{
 use clap::Parser;
 use nostr_sdk::prelude::FromSkStr;
 use nostr_sdk::prelude::ToBech32;
-use nostr_sdk::secp256k1::XOnlyPublicKey;
-use nostr_sdk::Timestamp;
+use rasun::recovery::RecoveryService;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = "0.1.0", about = "RASUN", long_about = "Address Sharing Using Nostr")]
 struct Args {
     #[arg(
         short = 'x',
@@ -36,7 +32,7 @@ struct Args {
     )]
     derivation_path: String,
 
-    #[arg(short = 'n', long = "nostr-key", default_value = "", env = "NOSTR_KEY")]
+    #[arg(short = 'n', long = "nostr-key", default_value = "RANDOMLY_GENERATED", env = "NOSTR_KEY")]
     nostr_key: String,
 
     #[arg(
@@ -56,62 +52,6 @@ struct Args {
     nostr_recovery_relay: String,
 }
 
-async fn give_addr(
-    wallet: &bdk::Wallet<bdk::database::MemoryDatabase>,
-    requester_pubkey: &XOnlyPublicKey,
-    nostr_recovery_client: &nostr_sdk::Client,
-    my_pubkey: XOnlyPublicKey,
-    recov_vec: Arc<Mutex<Vec<RecoveryMessage>>>,
-) -> String // (String,Arc<Mutex<Vec<RecovMessage>>>)
-{
-    //check for address re-reqs
-    let b = recov_vec.lock().unwrap().clone();
-    for i in b {
-        if i.reciever_pubkey == requester_pubkey.to_string() {
-            let txs = reqwest::get(format!(
-                "https://mempool.space/api/address/{}/txs",
-                i.content_given
-            ))
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap();
-            if txs == "[]" {
-                //if the previous address was not used return that.
-                return format!("AddrRes:\n{}", i.content_given);
-            }
-        }
-    }
-
-    let address = wallet.get_address(bdk::wallet::AddressIndex::New).unwrap();
-    let recov_message = RecoveryMessage {
-        msg_type: String::from("AddrRes"),
-        reciever_pubkey: (requester_pubkey.to_string()),
-        index: address.index,
-        content_given: (address.to_string()),
-        timestamp: Timestamp::now().as_u64(),
-    };
-    recov_vec.lock().unwrap().push(recov_message.clone());
-    println!(
-        "{} is given to {}, Addr index = {}",
-        recov_message.content_given, recov_message.reciever_pubkey, recov_message.index
-    );
-    let recov_id = nostr_recovery_client
-        .send_direct_msg(my_pubkey, recov_message.to_string(), None)
-        .await;
-    println!("{:?}", recov_id.unwrap());
-    return format!("AddrRes:\n{}", recov_message.content_given);
-}
-
-fn give_desc() -> String {
-    String::from("is not supported")
-}
-
-fn give_xpub() -> String {
-    String::from("is not supported")
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO:
@@ -125,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nostr_response_relay = args.nostr_response_relay;
     let nostr_recovery_relay = args.nostr_recovery_relay;
     let nostr_keys;
-    if args.nostr_key.is_empty() {
+    if args.nostr_key == "RANDOMLY_GENERATED" {
         nostr_keys = nostr_sdk::Keys::generate();
     } else if args.nostr_key == "0" {
         nostr_keys = nostr_sdk::Keys::from_sk_str(
@@ -149,70 +89,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         nostr_keys.secret_key().unwrap().display_secret()
     );
 
+    let recovery_service =
+    Arc::new(Mutex::new(RecoveryService::new(nostr_keys.clone(), nostr_recovery_relay, wallet).await?));
+
     let nostr_client = nostr_sdk::Client::new(&nostr_keys);
     nostr_client.add_relay(nostr_response_relay, None).await?;
     nostr_client.connect().await;
-
-    // recovery messages
-    let nostr_recovery_client = nostr_sdk::Client::new(&nostr_keys);
-    nostr_recovery_client
-        .add_relay(nostr_recovery_relay, None)
-        .await?;
-    nostr_recovery_client.connect().await;
-    let recovery_subscription = nostr_sdk::Filter::new()
-        .pubkey(nostr_keys.public_key())
-        .kind(nostr_sdk::Kind::EncryptedDirectMessage)
-        .author(nostr_keys.public_key().to_string());
-
-    let recov_vec = Arc::new(Mutex::new(Vec::new()));
-    let notes = nostr_recovery_client
-        .get_events_of(vec![recovery_subscription], None)
-        .await
-        .unwrap();
-    for note in notes {
-        match nostr_sdk::nips::nip04::decrypt(
-            &nostr_keys.secret_key()?,
-            &note.pubkey,
-            &note.content,
-        ) {
-            Ok(notestr) => {
-                match RecoveryMessage::from_str(&notestr) {
-                    Ok(rec) => {
-                        println!("{}", rec);
-                        recov_vec.lock().unwrap().push(rec);
-                    }
-                    Err(e) => {
-                        println!("{}", e);
-                        continue;
-                    }
-                };
-                // println!("{}",b);
-            }
-            Err(e) => tracing::error!("Impossible to decrypt direct message: {e}"),
-        }
-    }
-    let mut last_timestamp = nostr_sdk::Timestamp::now().as_u64();
-    if !recov_vec.lock().unwrap().is_empty() {
-        recov_vec
-            .lock()
-            .unwrap()
-            .sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-        let last_index = recov_vec.lock().unwrap()[0].index;
-        last_timestamp = recov_vec.lock().unwrap()[0].timestamp;
-        wallet.get_address(bdk::wallet::AddressIndex::Reset(last_index))?; // Return the address for a specific descriptor index and reset the current descriptor index used by AddressIndex::New and AddressIndex::LastUsed to this value.
-    }
-
     let subscription = nostr_sdk::Filter::new()
         .pubkey(nostr_keys.public_key())
         .kind(nostr_sdk::Kind::EncryptedDirectMessage)
-        .since(nostr_sdk::Timestamp::from(last_timestamp));
-
+        .since(nostr_sdk::Timestamp::from(
+            nostr_sdk::Timestamp::now().as_u64(),
+        ));
     nostr_client.subscribe(vec![subscription]).await;
-
     nostr_client
         .handle_notifications(|notification| async {
-            let recov_vec = Arc::clone(&recov_vec);
-
             if let nostr_sdk::RelayPoolNotification::Event(_url, event) = notification {
                 if event.kind == nostr_sdk::Kind::EncryptedDirectMessage {
                     match nostr_sdk::nips::nip04::decrypt(
@@ -223,17 +114,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(msg) => {
                             let content: String = match msg.as_str() {
                                 "AddrReq" => {
-                                    give_addr(
-                                        &wallet,
-                                        &event.pubkey,
-                                        &nostr_recovery_client,
-                                        nostr_keys.public_key(),
-                                        recov_vec,
-                                    )
-                                    .await
+                                    let address = recovery_service.lock().unwrap()
+                                        .check_and_get_address(&event.pubkey)
+                                        .await;
+                                    format!("AddrRes:\n{}", address.to_string())
                                 }
-                                "XpubReq" => give_xpub(),
-                                "DescReq" => give_desc(),
+                                "XpubReq" => String::from("is not supported"),
+                                "DescReq" => String::from("is not supported"),
                                 _ => String::from(""),
                             };
                             if !(content.is_empty()) {
