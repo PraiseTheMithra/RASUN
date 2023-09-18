@@ -4,14 +4,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bdk::{database::MemoryDatabase, Wallet};
+use bdk::{database::MemoryDatabase, wallet::AddressInfo, Wallet};
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
 
 #[derive(Clone)]
 pub struct RecoveryMessage {
     pub msg_type: String,
-    pub reciever_pubkey: String,
+    pub receiver_pubkey: String,
     pub content_given: String,
     pub index: u32,
     pub timestamp: u64,
@@ -21,7 +21,7 @@ impl fmt::Display for RecoveryMessage {
         write!(
             f,
             "type: {}, pubkey: {}, content_given: {}, index: {}, timestamp: {}",
-            self.msg_type, self.reciever_pubkey, self.content_given, self.index, self.timestamp
+            self.msg_type, self.receiver_pubkey, self.content_given, self.index, self.timestamp
         )
     }
 }
@@ -33,7 +33,7 @@ impl FromStr for RecoveryMessage {
 
         let _b = RecoveryMessage {
             msg_type: String::from(pairs[0].split(": ").collect::<Vec<&str>>()[1]),
-            reciever_pubkey: String::from(pairs[1].split(": ").collect::<Vec<&str>>()[1]),
+            receiver_pubkey: String::from(pairs[1].split(": ").collect::<Vec<&str>>()[1]),
             content_given: String::from(pairs[2].split(": ").collect::<Vec<&str>>()[1]),
             index: pairs[3].split(": ").collect::<Vec<&str>>()[1]
                 .parse::<u32>()
@@ -111,13 +111,28 @@ impl RecoveryService {
         });
     }
 
-    pub async fn check_and_get_address(
+    pub async fn check_and_get_address(&mut self, requester_pubkey: &XOnlyPublicKey) -> String {
+        let last_address = self.get_last_shared_address(requester_pubkey).await;
+        if !last_address.is_empty() {
+            return last_address;
+        }
+
+        let new_address = self
+            .wallet
+            .get_address(bdk::wallet::AddressIndex::New)
+            .unwrap();
+
+        self.backup_shared_address(requester_pubkey, &new_address).await;
+
+        return new_address.to_string();
+    }
+
+    async fn get_last_shared_address(
         &mut self,
-        requester_pubkey: &XOnlyPublicKey,
+        pubkey: &XOnlyPublicKey,
     ) -> String {
-        let b = self.recov_vec.lock().unwrap().clone();
-        for i in b {
-            if i.reciever_pubkey == requester_pubkey.to_string() {
+        for i in self.recov_vec.lock().unwrap().clone() {
+            if i.receiver_pubkey == pubkey.to_string() {
                 let txs = reqwest::get(format!(
                     "https://mempool.space/api/address/{}/txs",
                     i.content_given
@@ -133,23 +148,25 @@ impl RecoveryService {
                 }
             }
         }
+        return "".to_string();
+    }
 
-        let new_address = self
-            .wallet
-            .get_address(bdk::wallet::AddressIndex::New)
-            .unwrap();
-
+    async fn backup_shared_address(
+        &mut self,
+        pubkey: &XOnlyPublicKey,
+        address: &AddressInfo,
+    ) -> () {
         let recov_message = RecoveryMessage {
             msg_type: String::from("AddrRes"),
-            reciever_pubkey: (requester_pubkey.to_string()),
-            index: new_address.index,
-            content_given: (new_address.to_string()),
+            receiver_pubkey: (pubkey.to_string()),
+            index: address.index,
+            content_given: (address.to_string()),
             timestamp: Timestamp::now().as_u64(),
         };
         self.recov_vec.lock().unwrap().push(recov_message.clone());
         println!(
             "{} is given to {}, Addr index = {}",
-            recov_message.content_given, recov_message.reciever_pubkey, recov_message.index
+            recov_message.content_given, recov_message.receiver_pubkey, recov_message.index
         );
         let recov_id = self
             .client
@@ -160,7 +177,5 @@ impl RecoveryService {
             )
             .await;
         println!("{:?}", recov_id.unwrap());
-
-        return new_address.to_string();
     }
 }
