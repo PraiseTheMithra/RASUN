@@ -10,10 +10,11 @@ cargo run
 ```
 after that you could also try to run it with your own non-default arguments:
 ```
-./target/debug/rasun -x [your_xpub] -d [your_xpub_derivation_path] -n [your_nostr_key] -r [your_nostr_response_relay] -c [your_recovery_relay]
+./target/debug/rasun -x [your_xpub] -d [your_xpub_derivation_path] -n [your_nostr_key] -r [your_response_relay_1] ... [your_response_relay_n] -c [your_recovery_relay_1] ... [your_recovery_relay_n]
 ```
 note that you don't need to fill all the parameters. if Rasun doesn't get the arguments, it generates a new nostr key pair and uses a pre-defined xpub.
 your responser nostr pubkey will be shown in the output.
+<br>
 after the setup, to ask for addresses, use whatever nostr client you want (that supports custom relay and nip4, for web client you can use https://iris.to/, by using multiple browsers or private tabs you can better test the behaviour) and set the relay to your rasun response relay (default is wss://relay.damus.io), copy the responser's pubkey you got from the software and copy it in the search field of your client, then send a direct encrypted message containing `AddrReq`, if you want to test without assigning an address you can also use `DescReq`(the response would be that it is not currently supported).
 
 
