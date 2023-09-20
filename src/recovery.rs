@@ -122,27 +122,16 @@ impl RecoveryService {
             .get_address(bdk::wallet::AddressIndex::New)
             .unwrap();
 
-        self.backup_shared_address(requester_pubkey, &new_address).await;
+        self.backup_shared_address(requester_pubkey, &new_address)
+            .await;
 
         return new_address.to_string();
     }
 
-    async fn get_last_shared_address(
-        &mut self,
-        pubkey: &XOnlyPublicKey,
-    ) -> String {
+    async fn get_last_shared_address(&mut self, pubkey: &XOnlyPublicKey) -> String {
         for i in self.recov_vec.lock().unwrap().clone() {
             if i.receiver_pubkey == pubkey.to_string() {
-                let txs = reqwest::get(format!(
-                    "https://mempool.space/api/address/{}/txs",
-                    i.content_given
-                ))
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap();
-                if txs == "[]" {
+                if addr_unused(&i.content_given).await {
                     //if the previous address was not used return that.
                     return i.content_given;
                 }
@@ -177,5 +166,18 @@ impl RecoveryService {
             )
             .await;
         println!("{:?}", recov_id.unwrap());
+    }
+}
+pub async fn addr_unused(addr: &String) -> bool {
+    let txs = reqwest::get(format!("https://mempool.space/api/address/{}/txs", addr))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    if txs == "[]" {
+        return true;
+    } else {
+        return false;
     }
 }
