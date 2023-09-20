@@ -37,19 +37,21 @@ struct Args {
 
     #[arg(
         short = 'r',
-        long = "nostr-response-relay",
+        long = "nostr-response-relays",
         default_value = "wss://relay.damus.io",
-        env = "NOSTR_RESPONSE_RELAY"
+        env = "NOSTR_RESPONSE_RELAYS",
+        value_delimiter = ' '
     )]
-    nostr_response_relay: String,
+    nostr_response_relays: Option<Vec<String>>,
 
     #[arg(
         short = 'c',
-        long = "nostr-recovery-relay",
-        default_value = "wss://relay.damus.io",
-        env = "NOSTR_RECOVERY_RELAY"
+        long = "nostr-recovery-relays",
+        default_value = "wss://relay.damus.io wss://relay.snort.social",
+        env = "NOSTR_RECOVERY_RELAYS",
+        value_delimiter = ' '
     )]
-    nostr_recovery_relay: String,
+    nostr_recovery_relays: Option<Vec<String>>,
 }
 
 #[tokio::main]
@@ -62,8 +64,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let xpub = ExtendedPubKey::from_str(args.xpub.as_str()).unwrap();
     let derivation_path = bip32::DerivationPath::from_str(args.derivation_path.as_str()).unwrap();
-    let nostr_response_relay = args.nostr_response_relay;
-    let nostr_recovery_relay = args.nostr_recovery_relay;
+    let nostr_response_relays = args.nostr_response_relays.unwrap();
+    let nostr_recovery_relays = args.nostr_recovery_relays.unwrap();
     let nostr_keys;
     if args.nostr_key == "RANDOMLY_GENERATED" {
         nostr_keys = nostr_sdk::Keys::generate();
@@ -90,10 +92,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let recovery_service =
-    Arc::new(Mutex::new(RecoveryService::new(nostr_keys.clone(), nostr_recovery_relay, wallet).await?));
+    Arc::new(Mutex::new(RecoveryService::new(nostr_keys.clone(), nostr_recovery_relays, wallet).await?));
 
     let nostr_client = nostr_sdk::Client::new(&nostr_keys);
-    nostr_client.add_relay(nostr_response_relay, None).await?;
+    for relay in nostr_response_relays {
+        nostr_client.add_relay(relay, None).await?;
+    }
     nostr_client.connect().await;
     let subscription = nostr_sdk::Filter::new()
         .pubkey(nostr_keys.public_key())

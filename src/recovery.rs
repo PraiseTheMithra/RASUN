@@ -56,13 +56,15 @@ pub struct RecoveryService {
 impl RecoveryService {
     pub async fn new(
         nostr_keys: nostr_sdk::Keys,
-        nostr_recovery_relay: String,
+        nostr_recovery_relays: Vec<String>,
         wallet: Wallet<MemoryDatabase>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let nostr_recovery_client = nostr_sdk::Client::new(&nostr_keys);
-        nostr_recovery_client
-            .add_relay(nostr_recovery_relay, None)
+        for relay in nostr_recovery_relays {
+            nostr_recovery_client
+            .add_relay(relay, None)
             .await?;
+        }
         nostr_recovery_client.connect().await;
         let recovery_subscription = nostr_sdk::Filter::new()
             .pubkey(nostr_keys.public_key())
@@ -131,7 +133,7 @@ impl RecoveryService {
     async fn get_last_shared_address(&mut self, pubkey: &XOnlyPublicKey) -> String {
         for i in self.recov_vec.lock().unwrap().clone() {
             if i.receiver_pubkey == pubkey.to_string() {
-                if addr_unused(&i.content_given).await {
+                if is_address_unused(&i.content_given).await {
                     //if the previous address was not used return that.
                     return i.content_given;
                 }
@@ -168,16 +170,12 @@ impl RecoveryService {
         println!("{:?}", recov_id.unwrap());
     }
 }
-pub async fn addr_unused(addr: &String) -> bool {
+pub async fn is_address_unused(addr: &String) -> bool {
     let txs = reqwest::get(format!("https://mempool.space/api/address/{}/txs", addr))
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-    if txs == "[]" {
-        return true;
-    } else {
-        return false;
-    }
+        return txs == "[]";
 }
