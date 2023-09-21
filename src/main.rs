@@ -10,11 +10,17 @@ use clap::Parser;
 use nostr_sdk::prelude::FromSkStr;
 use nostr_sdk::prelude::ToBech32;
 use rasun::recovery::RecoveryService;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 #[derive(Parser)]
-#[command(author, version = "0.1.0", about = "RASUN", long_about = "Address Sharing Using Nostr")]
+#[command(
+    author,
+    version = "0.1.0",
+    about = "RASUN",
+    long_about = "Address Sharing Using Nostr"
+)]
 struct Args {
     #[arg(
         short = 'x',
@@ -32,7 +38,12 @@ struct Args {
     )]
     derivation_path: String,
 
-    #[arg(short = 'n', long = "nostr-key", default_value = "RANDOMLY_GENERATED", env = "NOSTR_KEY")]
+    #[arg(
+        short = 'n',
+        long = "nostr-key",
+        default_value = "RANDOMLY_GENERATED",
+        env = "NOSTR_KEY"
+    )]
     nostr_key: String,
 
     #[arg(
@@ -52,6 +63,14 @@ struct Args {
         value_delimiter = ' '
     )]
     nostr_recovery_relays: Option<Vec<String>>,
+
+    #[arg(
+        short = 'p',
+        long = "proxy-port",
+        default_value = None,
+        env = "PROXY_PORT",
+    )]
+    proxy_port: Option<u16>,
 }
 
 #[tokio::main]
@@ -90,13 +109,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "nostr prvkey: {}",
         nostr_keys.secret_key().unwrap().display_secret()
     );
-
-    let recovery_service =
-    Arc::new(Mutex::new(RecoveryService::new(nostr_keys.clone(), nostr_recovery_relays, wallet).await?));
+    // proxy
+    let inputted_proxy: Option<SocketAddr> = match args.proxy_port {
+        Some(prox_port) => Some(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            prox_port,
+        )),
+        None => None,
+    };
+    //let proxy = reqwest::Proxy::all(format!("socks5://localhost:{:?}", args.proxy_port))?;
+    let recovery_service = Arc::new(Mutex::new(
+        RecoveryService::new(
+            nostr_keys.clone(),
+            nostr_recovery_relays,
+            wallet,
+            inputted_proxy,
+        )
+        .await?,
+    ));
 
     let nostr_client = nostr_sdk::Client::new(&nostr_keys);
     for relay in nostr_response_relays {
-        nostr_client.add_relay(relay, None).await?;
+        nostr_client.add_relay(relay, inputted_proxy).await?;
     }
     nostr_client.connect().await;
     let subscription = nostr_sdk::Filter::new()
@@ -118,7 +152,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Ok(msg) => {
                             let content: String = match msg.as_str() {
                                 "AddrReq" => {
-                                    let address = recovery_service.lock().unwrap()
+                                    let address = recovery_service
+                                        .lock()
+                                        .unwrap()
                                         .check_and_get_address(&event.pubkey)
                                         .await;
                                     format!("AddrRes:\n{}", address.to_string())

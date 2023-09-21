@@ -58,12 +58,13 @@ impl RecoveryService {
         nostr_keys: nostr_sdk::Keys,
         nostr_recovery_relays: Vec<String>,
         wallet: Wallet<MemoryDatabase>,
+        inputted_proxy: Option<std::net::SocketAddr>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let nostr_recovery_client = nostr_sdk::Client::new(&nostr_keys);
         for relay in nostr_recovery_relays {
             nostr_recovery_client
-            .add_relay(relay, None)
-            .await?;
+                .add_relay(relay, inputted_proxy)
+                .await?;
         }
         nostr_recovery_client.connect().await;
         let recovery_subscription = nostr_sdk::Filter::new()
@@ -177,5 +178,5 @@ pub async fn is_address_unused(addr: &String) -> bool {
         .text()
         .await
         .unwrap();
-        return txs == "[]";
+    return txs == "[]";
 }
