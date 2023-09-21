@@ -22,6 +22,8 @@ use std::sync::{Arc, Mutex};
     long_about = "Address Sharing Using Nostr"
 )]
 struct Args {
+    /// your bip-32 extended public key!
+    /// default value is a predefined xpub for test purposes, you will not be able to recieve money by using this.
     #[arg(
         short = 'x',
         long = "extended-public-key",
@@ -29,7 +31,7 @@ struct Args {
         env = "XPUB"
     )]
     xpub: String,
-
+    /// derivation path of your provided extended public key.
     #[arg(
         short = 'd',
         long = "derivation-path",
@@ -37,7 +39,8 @@ struct Args {
         env = "DERIVATION_PATH"
     )]
     derivation_path: String,
-
+    /// your nostr prvkey. as a best practice, you should use your prvkey derived from m/696h.
+    /// more importantly you should not use multiple nostr prvkeys, doing so results in collision between shared addresses.
     #[arg(
         short = 'n',
         long = "nostr-key",
@@ -45,7 +48,7 @@ struct Args {
         env = "NOSTR_KEY"
     )]
     nostr_key: String,
-
+    /// the list of your RASUN response relays, separated by space. less is better.
     #[arg(
         short = 'r',
         long = "nostr-response-relays",
@@ -54,7 +57,7 @@ struct Args {
         value_delimiter = ' '
     )]
     nostr_response_relays: Option<Vec<String>>,
-
+    /// the list of your RASUN recovery relays, separated by space. more is better.
     #[arg(
         short = 'c',
         long = "nostr-recovery-relays",
@@ -63,7 +66,7 @@ struct Args {
         value_delimiter = ' '
     )]
     nostr_recovery_relays: Option<Vec<String>>,
-
+    /// the local port your Tor (or other proxy) is listening to. if you're running Tor, try 9050.
     #[arg(
         short = 'p',
         long = "proxy-port",
