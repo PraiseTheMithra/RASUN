@@ -1,10 +1,10 @@
 use std::{
     fmt,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, error::Error,
 };
 
-use bdk::{database::MemoryDatabase, wallet::AddressInfo, Wallet};
+use bdk::wallet::AddressInfo;
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
 
@@ -49,7 +49,6 @@ impl FromStr for RecoveryMessage {
 pub struct RecoveryService {
     nostr_keys: nostr_sdk::Keys,
     client: nostr_sdk::Client,
-    wallet: Wallet<MemoryDatabase>,
     recov_vec: Arc<Mutex<Vec<RecoveryMessage>>>,
 }
 
@@ -57,9 +56,8 @@ impl RecoveryService {
     pub async fn new(
         nostr_keys: nostr_sdk::Keys,
         nostr_recovery_relays: Vec<String>,
-        wallet: Wallet<MemoryDatabase>,
         inputted_proxy: Option<std::net::SocketAddr>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn Error>> {
         let nostr_recovery_client = nostr_sdk::Client::new(&nostr_keys);
         for relay in nostr_recovery_relays {
             nostr_recovery_client
@@ -103,51 +101,35 @@ impl RecoveryService {
                 .lock()
                 .unwrap()
                 .sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-            let last_index = recov_vec.lock().unwrap()[0].index;
-            wallet.get_address(bdk::wallet::AddressIndex::Reset(last_index))?; // Return the address for a specific descriptor index and reset the current descriptor index used by AddressIndex::New and AddressIndex::LastUsed to this value.
         }
         return Ok(Self {
             nostr_keys: nostr_keys,
             client: nostr_recovery_client,
-            wallet: wallet,
             recov_vec: recov_vec,
         });
     }
 
-    pub async fn check_and_get_address(&mut self, requester_pubkey: &XOnlyPublicKey) -> String {
-        let last_address = self.get_last_shared_address(requester_pubkey).await;
-        if !last_address.is_empty() {
-            return last_address;
+    pub fn get_last_shared_address_index(&mut self) -> u32 {
+        return match self.recov_vec.lock().unwrap().last() {
+            None => 0,
+            Some(last_recovery_message) => last_recovery_message.index
         }
-
-        let new_address = self
-            .wallet
-            .get_address(bdk::wallet::AddressIndex::New)
-            .unwrap();
-
-        self.backup_shared_address(requester_pubkey, &new_address)
-            .await;
-
-        return new_address.to_string();
     }
 
-    async fn get_last_shared_address(&mut self, pubkey: &XOnlyPublicKey) -> String {
+    pub fn get_last_shared_address(&mut self, pubkey: &XOnlyPublicKey) -> Result<String, Box<dyn Error>> {
         for i in self.recov_vec.lock().unwrap().clone() {
             if i.receiver_pubkey == pubkey.to_string() {
-                if is_address_unused(&i.content_given).await {
-                    //if the previous address was not used return that.
-                    return i.content_given;
-                }
+                return Ok(i.content_given);
             }
         }
-        return "".to_string();
+        return Err("Not found")?;
     }
 
-    async fn backup_shared_address(
+    pub async fn backup_shared_address(
         &mut self,
         pubkey: &XOnlyPublicKey,
         address: &AddressInfo,
-    ) -> () {
+    ) -> Result<(), Box<dyn Error>> {
         let recov_message = RecoveryMessage {
             msg_type: String::from("AddrRes"),
             receiver_pubkey: (pubkey.to_string()),
@@ -169,14 +151,6 @@ impl RecoveryService {
             )
             .await;
         println!("{:?}", recov_id.unwrap());
+        return Ok(());
     }
-}
-pub async fn is_address_unused(addr: &String) -> bool {
-    let txs = reqwest::get(format!("https://mempool.space/api/address/{}/txs", addr))
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
-    return txs == "[]";
 }
