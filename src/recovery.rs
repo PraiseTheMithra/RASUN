@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, Mutex}, error::Error,
 };
 
-use bdk::wallet::AddressInfo;
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
 
@@ -128,13 +127,14 @@ impl RecoveryService {
     pub async fn backup_shared_address(
         &mut self,
         pubkey: &XOnlyPublicKey,
-        address: &AddressInfo,
+        address: String,
+        address_index: u32,
     ) -> Result<(), Box<dyn Error>> {
         let recov_message = RecoveryMessage {
             msg_type: String::from("AddrRes"),
             receiver_pubkey: (pubkey.to_string()),
-            index: address.index,
-            content_given: (address.to_string()),
+            index: address_index,
+            content_given: address,
             timestamp: Timestamp::now().as_u64(),
         };
         self.recov_vec.lock().unwrap().push(recov_message.clone());

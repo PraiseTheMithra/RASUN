@@ -91,13 +91,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         Err(_) => "".to_string(),
                                     };
 
-                                    if address.is_empty() || !wallet_service.lock().unwrap().is_address_unused(&address).await {
+                                    if address.is_empty()
+                                        || !wallet_service
+                                            .lock()
+                                            .unwrap()
+                                            .is_address_unused(&address)
+                                            .await
+                                    {
                                         let new_address =
                                             wallet_service.lock().unwrap().get_new_address();
                                         let _ = recovery_service
                                             .lock()
                                             .unwrap()
-                                            .backup_shared_address(requester_pubkey, &new_address)
+                                            .backup_shared_address(
+                                                requester_pubkey,
+                                                new_address.to_string(),
+                                                new_address.index,
+                                            )
                                             .await;
                                         address = new_address.to_string()
                                     }
