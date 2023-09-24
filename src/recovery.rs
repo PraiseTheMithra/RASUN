@@ -1,13 +1,11 @@
-use bdk::{database::MemoryDatabase, wallet::AddressInfo, Wallet};
-use nostr_sdk::secp256k1::XOnlyPublicKey;
-use nostr_sdk::Timestamp;
-
-use serde::{Deserialize, Serialize};
 use std::{
+    error::Error,
     fmt,
     str::FromStr,
-    sync::{Arc, Mutex}, error::Error,
+    sync::{Arc, Mutex},
 };
+
+use serde::{Deserialize, Serialize};
 
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
@@ -101,11 +99,14 @@ impl RecoveryService {
     pub fn get_last_shared_address_index(&mut self) -> u32 {
         return match self.recov_vec.lock().unwrap().last() {
             None => 0,
-            Some(last_recovery_message) => last_recovery_message.index
-        }
+            Some(last_recovery_message) => last_recovery_message.index,
+        };
     }
 
-    pub fn get_last_shared_address(&mut self, pubkey: &XOnlyPublicKey) -> Result<String, Box<dyn Error>> {
+    pub fn get_last_shared_address(
+        &mut self,
+        pubkey: &XOnlyPublicKey,
+    ) -> Result<String, Box<dyn Error>> {
         for i in self.recov_vec.lock().unwrap().clone() {
             if i.receiver_pubkey == pubkey.to_string() {
                 return Ok(i.content_given);
