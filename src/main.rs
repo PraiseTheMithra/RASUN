@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         nostr_keys = nostr_sdk::Keys::generate();
     } else if args.nostr_key == "0" {
         nostr_keys = nostr_sdk::Keys::from_sk_str(
-            "ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9",
+            "ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9", //ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9
         )?;
     } else {
         nostr_keys = nostr_sdk::Keys::from_sk_str(args.nostr_key.as_str())?;

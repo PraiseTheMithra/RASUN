@@ -26,10 +26,11 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 - [x] default to Wpkh instead of pkh
 - [x] support for multiple user-defined relays
 - [ ] support for different address types
+- [ ] support client-auth (nip 42)
+- [ ] support Req_pass
+- [ ] concat notes with random-sized arbitary strings
 - [ ] reply to messages sent while the client was not running
-- [ ] support for DescReq
+- [ ] support for DescReq and contact list
 - [ ] show deposits into covered addresses
 - [ ] add derivation paths to recovery notes
 - [ ] support for testnet
-### known issues
-- [ ] non-recovery notes to self should be checked for and ignored
