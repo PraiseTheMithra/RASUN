@@ -26,7 +26,6 @@ impl fmt::Display for RecoveryMessage {
     }
 }
 impl FromStr for RecoveryMessage {
-    // TODO: handle Error case , index out of bound, etc
     type Err = Box<dyn std::error::Error>;
     fn from_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let _b = serde_json::from_str(s)?;
@@ -128,7 +127,9 @@ impl RecoveryService {
             content_given: address,
             timestamp: Timestamp::now().as_u64(),
         };
+        // println!("{}", self.recov_vec.lock().unwrap().len()); //temp line
         self.recov_vec.lock().unwrap().push(recov_message.clone());
+        // println!("{}", self.recov_vec.lock().unwrap().len()); //temp line
         println!(
             "{} is given to {}, Addr index = {}",
             recov_message.content_given, recov_message.receiver_pubkey, recov_message.index

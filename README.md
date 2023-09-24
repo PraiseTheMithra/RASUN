@@ -25,6 +25,7 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 - [x] answer re-reqs with the same address if the previous address was not used in the transaction
 - [x] default to Wpkh instead of pkh
 - [x] support for multiple user-defined relays
+- [x] support for ~~testnet~~ signet
 - [ ] support for different address types
 - [ ] support client-auth (nip 42)
 - [ ] support Req_pass
@@ -33,4 +34,3 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 - [ ] support for DescReq and contact list
 - [ ] show deposits into covered addresses
 - [ ] add derivation paths to recovery notes
-- [ ] support for testnet

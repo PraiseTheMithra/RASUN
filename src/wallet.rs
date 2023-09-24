@@ -20,6 +20,7 @@ impl WalletService {
         xpub_string: String,
         derivation_path_string: String,
         address_index: u32,
+        network: char,
     ) -> Result<Self, Box<dyn Error>> {
         let xpub = ExtendedPubKey::from_str(xpub_string.as_str()).unwrap();
         let derivation_path =
@@ -30,20 +31,42 @@ impl WalletService {
                 .unwrap();
         let descriptor = descriptor!(wpkh(descriptor_key)).unwrap();
         let db = MemoryDatabase::new();
-        let wallet: Wallet<MemoryDatabase> =
-            Wallet::new(descriptor, None, bdk::bitcoin::Network::Bitcoin, db)?;
+        let wallet: Wallet<MemoryDatabase> = match network {
+            'b' | 'B' => Wallet::new(descriptor, None, bdk::bitcoin::Network::Bitcoin, db)?,
+            's' | 'S' => Wallet::new(descriptor, None, bdk::bitcoin::Network::Signet, db)?,
+            _ => panic!("Err"),
+        };
         wallet.get_address(bdk::wallet::AddressIndex::Reset(address_index))?;
         return Ok(Self { wallet: wallet });
     }
 
-    pub async fn is_address_unused(&mut self, addr: &String) -> bool {
-        let txs = reqwest::get(format!("https://mempool.space/api/address/{}/txs", addr))
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap();
-        return txs == "[]";
+    pub async fn is_address_unused(&mut self, addr: &String, network: &char) -> bool {
+        match network {
+            'b' | 'B' => {
+                let txs = reqwest::get(format!("https://mempool.space/api/address/{}/txs", addr))
+                    .await
+                    .unwrap()
+                    .text()
+                    .await
+                    .unwrap();
+                return txs == "[]";
+            }
+            's' | 'S' => {
+                let txs = reqwest::get(format!(
+                    "https://mempool.space/signet/api/address/{}/txs",
+                    addr
+                ))
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+                return txs == "[]";
+            }
+            _ => {
+                panic!("Invalid_network_in_is_address_unused")
+            }
+        }
     }
 
     pub fn get_new_address(&mut self) -> AddressInfo {

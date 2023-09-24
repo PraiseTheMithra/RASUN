@@ -53,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .lock()
                 .unwrap()
                 .get_last_shared_address_index(),
+            args.network,
         )
         .await?,
     ));
@@ -95,7 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         || !wallet_service
                                             .lock()
                                             .unwrap()
-                                            .is_address_unused(&address)
+                                            .is_address_unused(&address, &args.network)
                                             .await
                                     {
                                         let new_address =

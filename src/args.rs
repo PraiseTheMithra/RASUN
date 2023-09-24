@@ -28,7 +28,7 @@ pub struct Args {
     /// your nostr prvkey. as a best practice, you should use your prvkey derived from m/696h.
     /// more importantly you should not use multiple nostr prvkeys, doing so results in collision between shared addresses.
     #[arg(
-        short = 'n',
+        short = 'k',
         long = "nostr-key",
         default_value = "RANDOMLY_GENERATED",
         env = "NOSTR_KEY"
@@ -60,4 +60,12 @@ pub struct Args {
         env = "PROXY_PORT",
     )]
     pub proxy_port: Option<u16>,
+    /// the network your using this with, type "b" for Bitcoin and "s" for Signet
+    #[arg(
+        short = 'n',
+        long = "address-network [b:bitcoin/s:signet]",
+        default_value = "b",
+        env = "ADDR_NETWORK"
+    )]
+    pub network: char,
 }
