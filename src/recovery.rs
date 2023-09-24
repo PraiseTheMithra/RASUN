@@ -1,3 +1,8 @@
+use bdk::{database::MemoryDatabase, wallet::AddressInfo, Wallet};
+use nostr_sdk::secp256k1::XOnlyPublicKey;
+use nostr_sdk::Timestamp;
+
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     str::FromStr,
@@ -7,7 +12,8 @@ use std::{
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
+
 pub struct RecoveryMessage {
     pub msg_type: String,
     pub receiver_pubkey: String,
@@ -17,34 +23,18 @@ pub struct RecoveryMessage {
 }
 impl fmt::Display for RecoveryMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "type: {}, pubkey: {}, content_given: {}, index: {}, timestamp: {}",
-            self.msg_type, self.receiver_pubkey, self.content_given, self.index, self.timestamp
-        )
+        let b = serde_json::to_string(self).unwrap_or(String::from("Error"));
+        write!(f, "{}", b)
     }
 }
 impl FromStr for RecoveryMessage {
     // TODO: handle Error case , index out of bound, etc
     type Err = Box<dyn std::error::Error>;
     fn from_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let pairs: Vec<&str> = s.split(", ").collect();
-
-        let _b = RecoveryMessage {
-            msg_type: String::from(pairs[0].split(": ").collect::<Vec<&str>>()[1]),
-            receiver_pubkey: String::from(pairs[1].split(": ").collect::<Vec<&str>>()[1]),
-            content_given: String::from(pairs[2].split(": ").collect::<Vec<&str>>()[1]),
-            index: pairs[3].split(": ").collect::<Vec<&str>>()[1]
-                .parse::<u32>()
-                .unwrap(),
-            timestamp: pairs[4].split(": ").collect::<Vec<&str>>()[1]
-                .parse::<u64>()
-                .unwrap(),
-        };
+        let _b = serde_json::from_str(s)?;
         Ok(_b)
     }
 }
-
 pub struct RecoveryService {
     nostr_keys: nostr_sdk::Keys,
     client: nostr_sdk::Client,
@@ -64,14 +54,14 @@ impl RecoveryService {
                 .await?;
         }
         nostr_recovery_client.connect().await;
-        let recovery_subscription = nostr_sdk::Filter::new()
+        let recovery_filters = nostr_sdk::Filter::new()
             .pubkey(nostr_keys.public_key())
             .kind(nostr_sdk::Kind::EncryptedDirectMessage)
             .author(nostr_keys.public_key().to_string());
 
         let recov_vec = Arc::new(Mutex::new(Vec::new()));
         let notes = nostr_recovery_client
-            .get_events_of(vec![recovery_subscription], None)
+            .get_events_of(vec![recovery_filters], None)
             .await
             .unwrap();
         for note in notes {
@@ -146,7 +136,7 @@ impl RecoveryService {
             .client
             .send_direct_msg(
                 self.nostr_keys.public_key(),
-                recov_message.to_string(),
+                serde_json::to_string(&recov_message).unwrap(), //recov_message.to_string(),
                 None,
             )
             .await;
