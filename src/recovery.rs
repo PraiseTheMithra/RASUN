@@ -86,7 +86,12 @@ impl RecoveryService {
             recov_vec
                 .lock()
                 .unwrap()
-                .sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+                .sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+            println!("recov_vec sorted!");
+            println!(
+                "last element: {}",
+                recov_vec.lock().unwrap().last().unwrap()
+            );
         }
         return Ok(Self {
             nostr_keys: nostr_keys,
@@ -97,8 +102,14 @@ impl RecoveryService {
 
     pub fn get_last_shared_address_index(&mut self) -> u32 {
         return match self.recov_vec.lock().unwrap().last() {
-            None => 0,
-            Some(last_recovery_message) => last_recovery_message.index,
+            None => {
+                println!("recov_vec_empty");
+                0
+            }
+            Some(last_recovery_message) => {
+                println!("last index in vec:{}", &last_recovery_message.index);
+                last_recovery_message.index
+            }
         };
     }
 
@@ -106,7 +117,9 @@ impl RecoveryService {
         &mut self,
         pubkey: &XOnlyPublicKey,
     ) -> Result<String, Box<dyn Error>> {
-        for i in self.recov_vec.lock().unwrap().clone() {
+        let mut b = self.recov_vec.lock().unwrap().clone();
+        b.reverse();
+        for i in b {
             if i.receiver_pubkey == pubkey.to_string() {
                 return Ok(i.content_given);
             }
@@ -127,9 +140,7 @@ impl RecoveryService {
             content_given: address,
             timestamp: Timestamp::now().as_u64(),
         };
-        // println!("{}", self.recov_vec.lock().unwrap().len()); //temp line
         self.recov_vec.lock().unwrap().push(recov_message.clone());
-        // println!("{}", self.recov_vec.lock().unwrap().len()); //temp line
         println!(
             "{} is given to {}, Addr index = {}",
             recov_message.content_given, recov_message.receiver_pubkey, recov_message.index

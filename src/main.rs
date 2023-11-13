@@ -60,6 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let nostr_client = nostr_sdk::Client::new(&nostr_keys);
     for relay in nostr_response_relays {
+        println!("response relay: {}", &relay);
         nostr_client.add_relay(relay, inputted_proxy).await?;
     }
     nostr_client.connect().await;

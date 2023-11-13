@@ -38,7 +38,7 @@ pub struct Args {
     #[arg(
         short = 'r',
         long = "nostr-response-relays",
-        default_value = "wss://relay.damus.io",
+        default_value = "wss://relay.damus.io wss://relay.snort.social",
         env = "NOSTR_RESPONSE_RELAYS",
         value_delimiter = ' '
     )]

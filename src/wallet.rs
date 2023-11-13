@@ -36,6 +36,8 @@ impl WalletService {
             's' | 'S' => Wallet::new(descriptor, None, bdk::bitcoin::Network::Signet, db)?,
             _ => panic!("Err"),
         };
+        // ccccccccccccccccccc
+        println!("address_index {}", &address_index);
         wallet.get_address(bdk::wallet::AddressIndex::Reset(address_index))?;
         return Ok(Self { wallet: wallet });
     }
