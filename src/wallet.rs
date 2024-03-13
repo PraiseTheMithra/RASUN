@@ -77,4 +77,33 @@ impl WalletService {
             .get_address(bdk::wallet::AddressIndex::New)
             .unwrap();
     }
+
+    pub async fn is_wallet_used_outside(&mut self, network: &char, peek: u32) -> bool {
+        let mut p = peek + 1; //::NEW STARTS AT +1 and leaves out 0
+        let mut base_addr = self
+            .wallet
+            .get_address(bdk::wallet::AddressIndex::Peek(p))
+            .unwrap();
+        let mut flag = false;
+        while !(self
+            .is_address_unused(&base_addr.to_string(), network)
+            .await)
+        {
+            println!("WARNING! USED ADDRESS: {}", &base_addr.to_string());
+            flag = true;
+            p += 1;
+            base_addr = self
+                .wallet
+                .get_address(bdk::wallet::AddressIndex::Peek(p))
+                .unwrap();
+        }
+        println!(
+            "THIS ADDRESS IS GOING TO BE SHARED NEXT:{}",
+            &base_addr.to_string()
+        );
+        _ = self //SET BASE ADDRESS TO THE LAST UNUSED
+            .wallet
+            .get_address(bdk::wallet::AddressIndex::Reset(p - 1));
+        return flag;
+    }
 }

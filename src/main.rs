@@ -44,19 +44,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recovery_service = Arc::new(Mutex::new(
         RecoveryService::new(nostr_keys.clone(), nostr_recovery_relays, inputted_proxy).await?,
     ));
-
+    let last_index = recovery_service
+        .lock()
+        .unwrap()
+        .get_last_shared_address_index();
     let wallet_service = Arc::new(Mutex::new(
-        WalletService::new(
-            args.xpub,
-            args.derivation_path,
-            recovery_service
-                .lock()
-                .unwrap()
-                .get_last_shared_address_index(),
-            args.network,
-        )
-        .await?,
+        WalletService::new(args.xpub, args.derivation_path, last_index, args.network).await?,
     ));
+    if wallet_service
+        .lock()
+        .unwrap()
+        .is_wallet_used_outside(&args.network, last_index)
+        .await
+    {
+        println!("WARNING, THE WALLET IS USED OUTSIDE OF THIS NOSTR'S ASUN, USING THIS MAY RESULT IN LOSS OF PRIVACY");
+    }
 
     let nostr_client = nostr_sdk::Client::new(&nostr_keys);
     for relay in nostr_response_relays {
