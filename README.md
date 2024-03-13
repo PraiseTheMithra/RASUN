@@ -34,3 +34,6 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 - [ ] support for DescReq and contact list
 - [ ] show deposits into covered addresses
 - [ ] add derivation paths to recovery notes
+
+## Contact
+if you have any questions or want to contribute to this project, feel free to join [ASUN telegram group](https://t.me/ASUNDEV)
