@@ -25,7 +25,7 @@ pub struct Args {
         env = "DERIVATION_PATH"
     )]
     pub derivation_path: String,
-    /// your nostr prvkey. as a best practice, you should use your prvkey derived from m/696h.
+    /// your nostr prvkey in hex or bech32. as a best practice, you should use your prvkey derived from m/696h.
     /// more importantly you should not use multiple nostr prvkeys, doing so results in collision between shared addresses.
     #[arg(
         short = 'k',

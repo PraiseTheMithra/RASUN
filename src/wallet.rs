@@ -2,14 +2,14 @@ use std::error::Error;
 
 use bdk::database::MemoryDatabase;
 use bdk::keys::IntoDescriptorKey;
-use bdk::{wallet::AddressInfo, Wallet};
-use std::str::FromStr;
-
+use bdk::miniscript;
 use bdk::{
-    bitcoin::util::bip32::{self, ExtendedPubKey},
+    bitcoin::bip32::{self, ExtendedPubKey},
     descriptor,
     keys::DescriptorKey,
 };
+use bdk::{wallet::AddressInfo, Wallet};
+use std::str::FromStr;
 
 pub struct WalletService {
     wallet: Wallet<MemoryDatabase>,

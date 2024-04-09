@@ -7,8 +7,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Timestamp;
+use nostr_sdk::{secp256k1::XOnlyPublicKey, RelayOptions};
 
 #[derive(Clone, Serialize, Deserialize)]
 
@@ -47,14 +47,14 @@ impl RecoveryService {
         let nostr_recovery_client = nostr_sdk::Client::new(&nostr_keys);
         for relay in nostr_recovery_relays {
             nostr_recovery_client
-                .add_relay(relay, inputted_proxy)
+                .add_relay_with_opts(relay, RelayOptions::new().proxy(inputted_proxy)) //formerly: .add_relay(relay, inputted_proxy)
                 .await?;
         }
         nostr_recovery_client.connect().await;
         let recovery_filters = nostr_sdk::Filter::new()
             .pubkey(nostr_keys.public_key())
             .kind(nostr_sdk::Kind::EncryptedDirectMessage)
-            .author(nostr_keys.public_key().to_string());
+            .author(nostr_keys.public_key());
 
         let recov_vec = Arc::new(Mutex::new(Vec::new()));
         let notes = nostr_recovery_client
@@ -63,7 +63,7 @@ impl RecoveryService {
             .unwrap();
         for note in notes {
             match nostr_sdk::nips::nip04::decrypt(
-                &nostr_keys.secret_key()?,
+                nostr_keys.secret_key()?,
                 &note.pubkey,
                 &note.content,
             ) {

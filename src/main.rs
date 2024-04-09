@@ -1,5 +1,5 @@
 use clap::Parser;
-use nostr_sdk::prelude::FromSkStr;
+//use nostr_sdk::prelude::FromSkStr;
 use nostr_sdk::prelude::ToBech32;
 use rasun::recovery::RecoveryService;
 use rasun::wallet::WalletService;
@@ -20,11 +20,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.nostr_key == "RANDOMLY_GENERATED" {
         nostr_keys = nostr_sdk::Keys::generate();
     } else if args.nostr_key == "0" {
-        nostr_keys = nostr_sdk::Keys::from_sk_str(
-            "ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9", //ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9
+        nostr_keys = nostr_sdk::Keys::parse(
+            "ce7a8c7348a127b1e31493d0ea54e981c0a130cff5772ed2f54cf3c59a35a3a9", //for test purposes
         )?;
     } else {
-        nostr_keys = nostr_sdk::Keys::from_sk_str(args.nostr_key.as_str())?;
+        nostr_keys = nostr_sdk::Keys::parse(args.nostr_key.as_str())?;
     }
 
     println!("nostr pubkey: {}", nostr_keys.public_key().to_bech32()?);
@@ -63,7 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nostr_client = nostr_sdk::Client::new(&nostr_keys);
     for relay in nostr_response_relays {
         println!("response relay: {}", &relay);
-        nostr_client.add_relay(relay, inputted_proxy).await?;
+        nostr_client
+            .add_relay_with_opts(relay, nostr_sdk::RelayOptions::new().proxy(inputted_proxy))
+            .await?; //formerly: nostr_client.add_relay(relay, inputted_proxy).await?;
     }
     nostr_client.connect().await;
     let subscription = nostr_sdk::Filter::new()
@@ -72,13 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .since(nostr_sdk::Timestamp::from(
             nostr_sdk::Timestamp::now().as_u64(),
         ));
-    nostr_client.subscribe(vec![subscription]).await;
+    nostr_client.subscribe(vec![subscription], None).await;
     nostr_client
         .handle_notifications(|notification| async {
-            if let nostr_sdk::RelayPoolNotification::Event(_url, event) = notification {
+            if let nostr_sdk::RelayPoolNotification::Event { event, .. } = notification {
                 if event.kind == nostr_sdk::Kind::EncryptedDirectMessage {
                     match nostr_sdk::nips::nip04::decrypt(
-                        &nostr_keys.secret_key()?,
+                        nostr_keys.secret_key()?,
                         &event.pubkey,
                         &event.content,
                     ) {
