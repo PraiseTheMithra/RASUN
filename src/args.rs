@@ -17,11 +17,11 @@ pub struct Args {
         env = "XPUB"
     )]
     pub xpub: String,
-    /// derivation path of your provided extended public key.
+    /// derivation path of addresses from your provided xpub as root (default: m/0).
     #[arg(
         short = 'd',
         long = "derivation-path",
-        default_value = "m/84/0/0",
+        default_value = "m/0",
         env = "DERIVATION_PATH"
     )]
     pub derivation_path: String,
