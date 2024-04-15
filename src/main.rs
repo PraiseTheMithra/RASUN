@@ -74,6 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .since(nostr_sdk::Timestamp::from(
             nostr_sdk::Timestamp::now().as_u64(),
         ));
+
     nostr_client.subscribe(vec![subscription], None).await;
     nostr_client
         .handle_notifications(|notification| async {
@@ -85,8 +86,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         &event.content,
                     ) {
                         Ok(msg) => {
-                            let content: String = match msg.as_str() {
-                                "AddrReq" => {
+                            let message = msgtype(msg, &args.req_pass);
+                            let content: String = match message {
+                                Message::AddrReq => {
                                     let requester_pubkey = &event.pubkey;
                                     let mut address = match recovery_service
                                         .lock()
@@ -119,8 +121,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     format!("AddrRes:\n{}", address)
                                 }
-                                "XpubReq" => String::from("is not supported"),
-                                "DescReq" => String::from("is not supported"),
+                                Message::XpubReq => String::from("is not supported"),
+                                Message::DescReq => String::from("is not supported"),
                                 _ => String::from(""),
                             };
                             if !(content.is_empty()) {
@@ -138,4 +140,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
+}
+enum Message {
+    AddrReq,
+    DescReq,
+    XpubReq,
+    Inv,
+}
+fn msgtype(msg: String, pass: &String) -> Message {
+    if msg == "AddrReq".to_string() + pass {
+        return Message::AddrReq;
+    } else if msg == "XpubReq".to_string() + pass {
+        return Message::XpubReq;
+    } else if msg == "DescReq".to_string() + pass {
+        return Message::DescReq;
+    } else {
+        Message::Inv
+    }
 }

@@ -68,4 +68,8 @@ pub struct Args {
         env = "ADDR_NETWORK"
     )]
     pub network: char,
+
+    /// your req_pass, this has to be concatenated to every request (default:"")
+    #[arg(long = "reqpass", default_value = "", env = "REQ_PASS")]
+    pub req_pass: String,
 }
