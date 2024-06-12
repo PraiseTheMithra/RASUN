@@ -30,7 +30,7 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 - [x] save recov vec on a separate derived pubkey (privacy, ux)
 - [ ] reply to messages sent while the client was not running
 - [ ] add derivation paths to recovery notes
-- [ ] support client-auth (nip 42, privacy)
+- [x] support client-auth (nip 42, privacy)
 - [ ] support Encrypted Payloads (Versioned)(nip 44, privacy)
 - [ ] Req_pass as label (ux)
 - [ ] concat notes with random-sized arbitary strings (privacy)
