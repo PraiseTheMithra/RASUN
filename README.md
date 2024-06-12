@@ -24,16 +24,19 @@ after the setup, to ask for addresses, use whatever nostr client you want (that 
 ## TODO
 - [x] answer re-reqs with the same address if the previous address was not used in the transaction
 - [x] default to Wpkh instead of pkh
-- [x] support for multiple user-defined relays
+- [x] support for multiple user-defined relays (ux)
 - [x] support for ~~testnet~~ signet
-- [ ] support for different address types
-- [ ] support client-auth (nip 42)
-- [ ] support Req_pass
-- [ ] concat notes with random-sized arbitary strings
+- [x] support Req_pass (privacy, ux)
+- [x] save recov vec on a separate derived pubkey (privacy, ux)
 - [ ] reply to messages sent while the client was not running
-- [ ] support for DescReq and contact list
-- [ ] show deposits into covered addresses
 - [ ] add derivation paths to recovery notes
+- [ ] support client-auth (nip 42, privacy)
+- [ ] support Encrypted Payloads (Versioned)(nip 44, privacy)
+- [ ] Req_pass as label (ux)
+- [ ] concat notes with random-sized arbitary strings (privacy)
+- [ ] support for DescReq and contact list (ux)
+- [ ] show deposits into covered addresses (ux)
+- [ ] support for different address types (ux)
 
 ## Contact
 if you have any questions or want to contribute to this project, feel free to join [ASUN telegram group](https://t.me/ASUNDEV)

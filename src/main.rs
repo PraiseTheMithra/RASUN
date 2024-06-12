@@ -1,9 +1,9 @@
 use clap::Parser;
-//use nostr_sdk::prelude::FromSkStr;
 use nostr_sdk::prelude::ToBech32;
 use rasun::recovery::RecoveryService;
 use rasun::wallet::WalletService;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 #[tokio::main]
@@ -26,8 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         nostr_keys = nostr_sdk::Keys::parse(args.nostr_key.as_str())?;
     }
+    let recov_key = derive_recov_key(&nostr_keys);
 
     println!("nostr pubkey: {}", nostr_keys.public_key().to_bech32()?);
+    println!(
+        "nostr recov pubkey: {}",
+        recov_key.public_key().to_bech32()?
+    );
     println!(
         "nostr prvkey: {}",
         nostr_keys.secret_key().unwrap().display_secret()
@@ -42,7 +47,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     //let proxy = reqwest::Proxy::all(format!("socks5://localhost:{:?}", args.proxy_port))?;
     let recovery_service = Arc::new(Mutex::new(
-        RecoveryService::new(nostr_keys.clone(), nostr_recovery_relays, inputted_proxy).await?,
+        RecoveryService::new(
+            nostr_keys.clone(),
+            recov_key.clone(),
+            nostr_recovery_relays,
+            inputted_proxy,
+        )
+        .await?,
     ));
     let last_index = recovery_service
         .lock()
@@ -157,4 +168,28 @@ fn msgtype(msg: String, pass: &String) -> Message {
     } else {
         Message::Inv
     }
+}
+
+fn derive_recov_key(parent: &nostr_sdk::Keys) -> nostr_sdk::Keys {
+    let b = parent.secret_key().unwrap().to_secret_hex();
+    let secretkey = nostr_sdk::secp256k1::SecretKey::from_str(b.as_str()).unwrap(); //4c049a15f30eb8834f09e1aecf0075f582792553ed4a32a06725a8f26820e725
+    let mut xpriv = bdk::bitcoin::bip32::ExtendedPrivKey::new_master(
+        bdk::bitcoin::Network::Bitcoin,
+        &nostr_sdk::util::hex::decode(b.as_str()).unwrap(),
+    )
+    .expect("Failed to create xpriv");
+
+    xpriv.private_key = secretkey;
+
+    let path: bdk::bitcoin::bip32::DerivationPath = "m/695h".parse().unwrap();
+    let child_key = xpriv
+        .derive_priv(&bdk::bitcoin::secp256k1::Secp256k1::new(), &path)
+        .unwrap();
+
+    let sd = format!("{}", child_key.private_key.display_secret());
+    let c = nostr_sdk::Keys::parse(
+        sd, //for test purposes
+    )
+    .unwrap();
+    return c;
 }
