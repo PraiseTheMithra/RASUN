@@ -33,7 +33,7 @@ impl FromStr for RecoveryMessage {
     }
 }
 pub struct RecoveryService {
-    nostr_keys: nostr_sdk::Keys,
+    recov_keys: nostr_sdk::Keys,
     client: nostr_sdk::Client,
     recov_vec: Arc<Mutex<Vec<RecoveryMessage>>>,
 }
@@ -41,6 +41,7 @@ pub struct RecoveryService {
 impl RecoveryService {
     pub async fn new(
         nostr_keys: nostr_sdk::Keys,
+        recov_keys: nostr_sdk::Keys,
         nostr_recovery_relays: Vec<String>,
         inputted_proxy: Option<std::net::SocketAddr>,
     ) -> Result<Self, Box<dyn Error>> {
@@ -52,7 +53,7 @@ impl RecoveryService {
         }
         nostr_recovery_client.connect().await;
         let recovery_filters = nostr_sdk::Filter::new()
-            .pubkey(nostr_keys.public_key())
+            .pubkey(recov_keys.public_key())
             .kind(nostr_sdk::Kind::EncryptedDirectMessage)
             .author(nostr_keys.public_key());
 
@@ -63,7 +64,7 @@ impl RecoveryService {
             .unwrap();
         for note in notes {
             match nostr_sdk::nips::nip04::decrypt(
-                nostr_keys.secret_key()?,
+                recov_keys.secret_key()?,
                 &note.pubkey,
                 &note.content,
             ) {
@@ -94,7 +95,7 @@ impl RecoveryService {
             );
         }
         return Ok(Self {
-            nostr_keys: nostr_keys,
+            recov_keys: recov_keys,
             client: nostr_recovery_client,
             recov_vec: recov_vec,
         });
@@ -148,7 +149,7 @@ impl RecoveryService {
         let recov_id = self
             .client
             .send_direct_msg(
-                self.nostr_keys.public_key(),
+                self.recov_keys.public_key(),
                 serde_json::to_string(&recov_message).unwrap(), //recov_message.to_string(),
                 None,
             )

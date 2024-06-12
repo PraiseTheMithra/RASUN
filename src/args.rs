@@ -13,7 +13,7 @@ pub struct Args {
     #[arg(
         short = 'x',
         long = "extended-public-key",
-        default_value = "xpub6BqB4igvkyuLW28sMUx5KgLxpnW5AmkDdcRRAhYaMKVRVcY1fbntCKCDMwqko4DUUGHsQNwvMtMGpitSDmp7VFXqWTRtA95Fcw4XQFbut4Z",
+        default_value = "tpubDC6zXTLA5Y96rECsqNbU3JPYVCbn8kSUoh3vqHX1sKRfKP5SgMHN6Cy5txJhDEFsuKUnTQ745sye3PTdSWrSMhoJFwzfq5zGWwSZK5912aK",
         env = "XPUB"
     )]
     pub xpub: String,
@@ -64,7 +64,7 @@ pub struct Args {
     #[arg(
         short = 'n',
         long = "address-network [b:bitcoin/s:signet]",
-        default_value = "b",
+        default_value = "s",
         env = "ADDR_NETWORK"
     )]
     pub network: char,
